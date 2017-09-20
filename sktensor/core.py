@@ -271,6 +271,34 @@ def innerprod(X, Y):
     """
     return dot(X.flatten(), Y.flatten())
 
+def column_norm(X, by_norm='1'):
+    """
+    Compute the norms of each column of a given matrix.
+
+    Parameters:
+    ----------
+    X: numpy.array or scipy.sparce matrix.
+
+    Optional Parameters:
+    -------------------
+    by_norm: '1' (default) for l2-norm and '1' for l1-norm .
+
+    Returns:
+    -------
+    norm_vec: numpy.array with normalization factors for each column.
+    """
+    if issparse_mat(X):
+        if by_norm == '2':
+            norm_vec = np.sqrt(X.multiply(X).sum(axis=0))
+        elif by_norm == '1':
+            norm_vec = X.sum(axis=0)
+        return np.asarray(norm_vec)[0]
+    else:
+        if by_norm == '2':
+            norm_vec = np.sqrt(np.sum(X * X, axis=0))
+        elif by_norm == '1':
+            norm_vec = np.sum(X, axis=0)
+        return norm_vec
 
 def nvecs(X, n, rank, do_flipsign=True, dtype=np.float):
     """
