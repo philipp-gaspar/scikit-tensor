@@ -20,11 +20,12 @@ import numpy as np
 from numpy import array, ones, sqrt
 from numpy.random import rand
 from .pyutils import is_number
-from .core import ttm, nvecs, norm
+from .core import ttm, nvecs, norm, column_norm
 
 __all__ = [
     'hooi',
     'hosvd',
+    'ntd_hals'
 ]
 
 _log = logging.getLogger('TUCKER')
@@ -32,6 +33,49 @@ __DEF_MAXITER = 500
 __DEF_INIT = 'nvecs'
 __DEF_CONV = 1e-7
 
+def ntd_hals(X, rank, **kwargs):
+    """
+    Compute Tucker decomposition of a tensor using the NTD-HALS algorithm.
+
+    Parameters
+    ----------
+    X : tensor_mixin
+        The tensor to be decomposed
+    rank : array_like
+        The rank of the decomposition for each mode of the tensor.
+        The lenght of "rank" must match the number of modes of "X".
+    init : {'random', 'nvecs'}, optional
+        The initialization method to use.
+            - random : Factor matrices are initialized randomly.
+            - nvecs : Factor matrices are initialized via HOSVD.
+        default : 'nvecs'
+
+    Examples
+    --------
+
+    References
+    ----------
+    .. [1] A. Huy Phan, A. Cichocki: Extended HALS algorithm for nonnegative
+    Tucker decompositions and its applications for multiway analysis and
+    classification;
+    Neurocomputing. 74 (2011), pp. 1956-1969
+    """
+    # init options
+    # ainit = kwargs.pop('init', __DEF_INIT)
+    max_iter = kwargs.pop('max_iter', __DEF_MAXITER)
+    conv = kwargs.pop('conv', __DEF_CONV)
+    dtype = kwargs.pop('dtype', X.dtype)
+    if not len(kwargs) == 0:
+        raise ValueError('Unknown keywords (%s)' % (kwargs.keys()))
+
+    n_dims = X.ndim
+    if is_number(rank):
+        rank = rank * ones(n_dims)
+
+    # nonnegative initialization for all A^(n)
+    A = __init_hals(X, n_dims, rank, dtype)
+
+    return A
 
 def hooi(X, rank, **kwargs):
     """
@@ -148,3 +192,31 @@ def __init(init, X, N, rank, dtype):
     elif init == 'nvecs':
         Uinit = hosvd(X, rank, range(1, N), dtype=dtype, compute_core=False)
     return Uinit
+
+def __init_hals(X, N, rank, dtype):
+    """
+    Function to initialize component matrices of the NTD-HALS algorithm.
+
+    Parameters
+    ----------
+    X : dtensor object
+    N : int
+        Number of dimentions of the tensor
+    rank : array like
+        The rank of the decomposition for each mode of the tensor.
+        The length of "rank" must match the number of modes of "X".
+    dtype : dtype
+        Type of values in the tensor (ex.: double, float)
+
+    Returns
+    -------
+    """
+    A_init = []
+    for n in range(0, N):
+        A_n = array(rand(X.shape[n], rank[n]), dtype=dtype)
+        # normalize columns to unit lenght
+        norm_vec = column_norm(A_n, by_norm='1')
+        A_n = A_n / norm_vec
+        A_init.append(A_n)
+
+    return A_init
